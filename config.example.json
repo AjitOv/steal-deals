@@ -1,0 +1,10 @@
+{
+  "affiliate_tag": "yourtag-21",
+  "marketplace": "amazon.in",
+  "search_cache_minutes": 30,
+  "product_cache_minutes": 60,
+  "data_source": "auto",
+  "paapi_access_key": "",
+  "paapi_secret_key": "",
+  "paapi_pages": 2
+}

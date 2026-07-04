@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steal Deals — grab it before it's gone</title>
+<style>
+  :root {
+    --bg:#0f1115; --card:#181b22; --card2:#1f2330; --text:#e8eaf0;
+    --muted:#8a90a0; --accent:#ff4d4d; --green:#2ecc71; --border:#232733;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font:15px/1.45 -apple-system,'Segoe UI',Roboto,sans-serif; }
+
+  /* ---------- header ---------- */
+  .topbar { position:sticky; top:0; z-index:50; background:rgba(15,17,21,.92); backdrop-filter:blur(8px); border-bottom:1px solid var(--border); }
+  .topbar-inner { max-width:1200px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .logo { font-size:20px; font-weight:800; white-space:nowrap; text-decoration:none; color:inherit; }
+  .logo em { color:var(--accent); font-style:normal; }
+  .searchwrap { flex:1 1 300px; min-width:0; display:flex; gap:8px; }
+  .searchwrap input { flex:1; min-width:0; background:var(--card); border:1px solid var(--border); color:var(--text); border-radius:10px; padding:10px 14px; font-size:15px; outline:none; }
+  .searchwrap input:focus { border-color:#4a5568; }
+  .btn { flex-shrink:0; background:var(--accent); color:#fff; border:none; border-radius:10px; padding:10px 18px; font-size:15px; font-weight:700; cursor:pointer; }
+  .btn:hover { filter:brightness(1.1); }
+  .controls { display:flex; gap:8px; align-items:center; flex-shrink:0; margin-left:auto; }
+  @media (max-width:900px) {
+    .controls { width:100%; margin-left:0; }
+    .controls select { flex:1; }
+  }
+  select { background:var(--card); border:1px solid var(--border); color:var(--text); border-radius:10px; padding:9px 10px; font-size:13.5px; outline:none; cursor:pointer; }
+
+  /* ---------- chips ---------- */
+  .chips { max-width:1200px; margin:14px auto 0; padding:0 20px; display:flex; gap:8px; flex-wrap:wrap; }
+  .chip { background:var(--card); border:1px solid var(--border); color:var(--muted); border-radius:999px; padding:6px 14px; font-size:13px; cursor:pointer; transition:.12s; }
+  .chip:hover, .chip.active { color:var(--text); border-color:#4a5568; }
+  .chip.active { background:var(--card2); }
+
+  /* ---------- status / grid ---------- */
+  .status { max-width:1200px; margin:16px auto 0; padding:0 20px; color:var(--muted); font-size:13.5px; min-height:20px; }
+  .grid { max-width:1200px; margin:12px auto 40px; padding:0 20px; display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:14px; }
+  .card { position:relative; background:var(--card); border-radius:12px; overflow:hidden; border:1px solid var(--border); cursor:pointer; display:flex; flex-direction:column; transition:transform .12s, border-color .12s; }
+  .card:hover { transform:translateY(-3px); border-color:#3a4152; }
+  .badge { position:absolute; top:10px; left:10px; background:var(--accent); color:#fff; font-weight:700; font-size:13px; padding:3px 8px; border-radius:6px; z-index:2; }
+  .imgwrap { background:#fff; height:180px; display:flex; align-items:center; justify-content:center; }
+  .imgwrap img { max-height:160px; max-width:90%; object-fit:contain; }
+  .card .body { padding:12px; display:flex; flex-direction:column; gap:6px; flex:1; }
+  .title { font-size:13.5px; line-height:1.35; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  .meta { display:flex; align-items:baseline; gap:8px; margin-top:auto; }
+  .price { font-size:17px; font-weight:700; }
+  .mrp { color:var(--muted); text-decoration:line-through; font-size:12.5px; }
+  .rating { margin-left:auto; color:#f5b942; font-size:12.5px; }
+  .buyrow { padding:0 12px 12px; }
+  .buy { display:block; text-align:center; background:var(--green); color:#08130c; font-weight:800; font-size:13.5px; border-radius:9px; padding:9px 0; text-decoration:none; }
+  .buy:hover { filter:brightness(1.08); }
+
+  /* skeletons */
+  .skel { border-radius:12px; border:1px solid var(--border); overflow:hidden; }
+  .skel .sk-img { height:180px; background:linear-gradient(100deg,var(--card) 40%,var(--card2) 50%,var(--card) 60%); background-size:200% 100%; animation:sh 1.2s infinite; }
+  .skel .sk-line { height:12px; margin:12px; border-radius:6px; background:linear-gradient(100deg,var(--card) 40%,var(--card2) 50%,var(--card) 60%); background-size:200% 100%; animation:sh 1.2s infinite; }
+  @keyframes sh { to { background-position:-200% 0; } }
+
+  .empty { max-width:600px; margin:80px auto; text-align:center; color:var(--muted); }
+  .empty h2 { color:var(--text); margin-bottom:8px; }
+
+  /* ---------- modal ---------- */
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:100; display:none; align-items:flex-start; justify-content:center; overflow-y:auto; padding:40px 16px; }
+  .overlay.open { display:flex; }
+  .modal { background:var(--card); border:1px solid var(--border); border-radius:16px; max-width:860px; width:100%; overflow:hidden; }
+  .modal-head { display:flex; justify-content:flex-end; padding:10px 10px 0; }
+  .close { background:var(--card2); border:1px solid var(--border); color:var(--muted); border-radius:8px; width:34px; height:34px; font-size:17px; cursor:pointer; }
+  .modal-body { display:grid; grid-template-columns:340px 1fr; gap:24px; padding:6px 24px 24px; }
+  @media (max-width:720px) { .modal-body { grid-template-columns:1fr; } }
+  .gallery { background:#fff; border-radius:12px; height:320px; display:flex; align-items:center; justify-content:center; }
+  .gallery img { max-height:300px; max-width:92%; object-fit:contain; }
+  .thumbs { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .thumbs img { width:52px; height:52px; object-fit:contain; background:#fff; border-radius:8px; border:2px solid transparent; cursor:pointer; }
+  .thumbs img.sel { border-color:var(--accent); }
+  .p-title { font-size:17px; line-height:1.4; font-weight:600; }
+  .p-pricing { display:flex; align-items:baseline; gap:10px; margin:12px 0 4px; }
+  .p-price { font-size:26px; font-weight:800; }
+  .p-mrp { color:var(--muted); text-decoration:line-through; }
+  .p-disc { color:var(--accent); font-weight:800; }
+  .p-sub { color:var(--muted); font-size:13px; margin-bottom:10px; }
+  .avail { font-size:13.5px; color:var(--green); margin-bottom:12px; }
+  .bullets { margin:10px 0 16px 18px; color:#c3c8d4; font-size:13.5px; display:flex; flex-direction:column; gap:6px; }
+  .modal .buy { font-size:15px; padding:13px 0; border-radius:11px; }
+  .p-loading { color:var(--muted); font-size:13.5px; margin:10px 0; }
+  .aff-note { color:var(--muted); font-size:11.5px; margin-top:10px; text-align:center; }
+
+  footer { border-top:1px solid var(--border); color:var(--muted); font-size:12.5px; text-align:center; padding:22px 16px 30px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="logo" href="#" onclick="resetHome(event)">🔥 Steal<em>Deals</em></a>
+    <form class="searchwrap" onsubmit="onSearch(event)">
+      <input id="q" type="search" placeholder="Search deals… headphones, shoes, laptop" autocomplete="off">
+      <button class="btn" type="submit">Search</button>
+    </form>
+    <div class="controls">
+      <select id="minDisc" onchange="rerender()">
+        <option value="30">30%+ off</option>
+        <option value="50" selected>50%+ off</option>
+        <option value="70">70%+ off</option>
+        <option value="80">80%+ off</option>
+      </select>
+      <select id="sort" onchange="rerender()">
+        <option value="discount">Biggest discount</option>
+        <option value="price_asc">Price: low → high</option>
+        <option value="price_desc">Price: high → low</option>
+        <option value="rating">Best rated</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<div class="chips" id="chips"></div>
+<div class="status" id="updated" style="margin-top:10px"></div>
+<div class="status" id="status"></div>
+<div class="grid" id="grid"></div>
+
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-head"><button class="close" onclick="closeModal()">✕</button></div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<footer>
+  As an Amazon Associate, this site earns from qualifying purchases.
+  Prices &amp; discounts can change at any time — the price on Amazon at checkout is the one that counts.
+</footer>
+
+<script>
+const CATEGORIES = ["Electronics","Headphones","Smart Watches","Mobiles","Laptops",
+                    "Home & Kitchen","Shoes","Men's Fashion","Women's Fashion","Toys"];
+let deals = [];        // raw results of the current query
+let currentQuery = "";
+let appcfg = {};       // /api/config: source, updated_at, curated…
+
+const $ = id => document.getElementById(id);
+const rup = n => "₹" + Math.round(n).toLocaleString("en-IN");
+const esc = s => { const d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; };
+
+function buildChips() {
+  $("chips").innerHTML = CATEGORIES.map(c =>
+    `<button class="chip" data-c="${esc(c)}" onclick="chipSearch('${esc(c)}')">${esc(c)}</button>`).join("");
+}
+
+function markChip() {
+  document.querySelectorAll(".chip").forEach(ch =>
+    ch.classList.toggle("active", ch.dataset.c.toLowerCase() === currentQuery.toLowerCase()));
+}
+
+function chipSearch(c) { $("q").value = c; doSearch(c); }
+function onSearch(e) { e.preventDefault(); const q = $("q").value.trim(); if (q) doSearch(q); }
+function resetHome(e) { e.preventDefault(); chipSearch(CATEGORIES[0]); }
+
+function skeletons(n=10) {
+  $("grid").innerHTML = Array.from({length:n}, () =>
+    `<div class="skel"><div class="sk-img"></div><div class="sk-line"></div><div class="sk-line" style="width:60%"></div></div>`).join("");
+}
+
+async function doSearch(q) {
+  currentQuery = q; markChip();
+  $("status").textContent = appcfg.source === "cache"
+    ? `Loading steals for “${q}”…`
+    : `Hunting steals for “${q}”… first search can take ~20s, cached after that.`;
+  skeletons();
+  try {
+    const r = await fetch(`/api/deals?q=${encodeURIComponent(q)}&min=0`);
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "search failed");
+    if (data.error) {  // cache mode, keyword not bundled
+      deals = [];
+      showEmpty("Live search is coming soon", esc(data.error));
+      return;
+    }
+    deals = data.deals;
+    rerender();
+  } catch (err) {
+    deals = [];
+    showEmpty("Couldn't fetch deals", esc(err.message) + " — try again in a few seconds.");
+  }
+}
+
+function showEmpty(title, sub) {
+  $("grid").innerHTML = `<div class="empty" style="grid-column:1/-1"><h2>${title}</h2><p>${sub}</p></div>`;
+  $("status").textContent = "";
+}
+
+function rerender() {
+  if (!currentQuery) return;
+  const min = +$("minDisc").value;
+  let list = deals.filter(d => d.discount >= min);
+  const sort = $("sort").value;
+  if (sort === "discount") list.sort((a,b) => b.discount - a.discount);
+  if (sort === "price_asc") list.sort((a,b) => a.price - b.price);
+  if (sort === "price_desc") list.sort((a,b) => b.price - a.price);
+  if (sort === "rating") list.sort((a,b) => (b.rating||0) - (a.rating||0));
+
+  $("status").textContent = `${list.length} steals for “${currentQuery}” at ${min}%+ off`;
+  if (!list.length) return showEmpty("No steals at this threshold",
+    "Lower the discount filter or try another search.");
+
+  $("grid").innerHTML = list.map(d => `
+    <div class="card" onclick="openModal('${d.asin}')">
+      <div class="badge">-${d.discount}%</div>
+      <div class="imgwrap"><img src="${esc(d.image)}" alt="" loading="lazy"></div>
+      <div class="body">
+        <div class="title">${esc(d.title)}</div>
+        <div class="meta">
+          <span class="price">${rup(d.price)}</span>
+          <span class="mrp">${rup(d.mrp)}</span>
+          <span class="rating">${d.rating ? "★ " + d.rating.toFixed(1) : ""}</span>
+        </div>
+      </div>
+      <div class="buyrow">
+        <a class="buy" href="/go/${d.asin}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Buy on Amazon</a>
+      </div>
+    </div>`).join("");
+}
+
+/* ---------- product modal ---------- */
+function openModal(asin) {
+  const d = deals.find(x => x.asin === asin) || {};
+  $("overlay").classList.add("open");
+  document.body.style.overflow = "hidden";
+  $("modalBody").innerHTML = renderModal(d, null);
+  fetch(`/api/product/${asin}`).then(r => r.ok ? r.json() : null).then(p => {
+    if (p && $("overlay").classList.contains("open") &&
+        $("modalBody").dataset.asin === asin) {
+      $("modalBody").innerHTML = renderModal(d, p);
+    }
+  }).catch(() => {});
+  $("modalBody").dataset.asin = asin;
+}
+
+function renderModal(d, p) {
+  const title = (p && p.title) || d.title || "";
+  const price = (p && p.price) || d.price;
+  const mrp = (p && p.mrp) || d.mrp;
+  const disc = (p && p.discount) || d.discount;
+  const rating = (p && p.rating) || d.rating;
+  const reviews = (p && p.reviews) || d.reviews;
+  const images = (p && p.images && p.images.length) ? p.images : (d.image ? [d.image] : []);
+  const main = images[0] || "";
+  return `
+    <div>
+      <div class="gallery"><img id="mainImg" src="${esc(main)}" alt=""></div>
+      ${images.length > 1 ? `<div class="thumbs">${images.map((im,i) =>
+        `<img src="${esc(im)}" class="${i===0?'sel':''}"
+              onclick="$('mainImg').src=this.src;document.querySelectorAll('.thumbs img').forEach(t=>t.classList.remove('sel'));this.classList.add('sel')">`
+      ).join("")}</div>` : ""}
+    </div>
+    <div>
+      <div class="p-title">${esc(title)}</div>
+      <div class="p-pricing">
+        <span class="p-price">${price ? rup(price) : ""}</span>
+        ${mrp ? `<span class="p-mrp">${rup(mrp)}</span>` : ""}
+        ${disc ? `<span class="p-disc">-${disc}%</span>` : ""}
+      </div>
+      <div class="p-sub">${rating ? "★ " + rating.toFixed(1) : ""}${reviews ? ` · ${reviews.toLocaleString("en-IN")} ratings` : ""}</div>
+      ${p && p.availability ? `<div class="avail">${esc(p.availability)}</div>` : ""}
+      ${p ? (p.bullets && p.bullets.length
+              ? `<ul class="bullets">${p.bullets.map(b => `<li>${esc(b)}</li>`).join("")}</ul>` : "")
+          : `<div class="p-loading">Loading full product details…</div>`}
+      <a class="buy" href="/go/${esc(d.asin || (p && p.asin) || "")}" target="_blank" rel="noopener">🛒 Buy on Amazon</a>
+      <div class="aff-note">Opens Amazon with our affiliate link — price stays the same for you.</div>
+    </div>`;
+}
+
+function closeModal() {
+  $("overlay").classList.remove("open");
+  document.body.style.overflow = "";
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+
+/* ---------- boot ---------- */
+async function boot() {
+  buildChips();
+  try { appcfg = await (await fetch("/api/config")).json(); } catch (e) {}
+  if (appcfg.source === "cache" && appcfg.updated_at) {
+    const d = new Date(appcfg.updated_at);
+    $("updated").textContent = "Deals hand-picked from Amazon · updated " +
+      d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  }
+  chipSearch(CATEGORIES[0]);
+}
+boot();
+</script>
+</body>
+</html>
