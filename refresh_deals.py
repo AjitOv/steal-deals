@@ -116,7 +116,17 @@ def main():
     subprocess.run(["git", "commit", "-m", f"Refresh deals {stamp}"],
                    cwd=BASE_DIR, check=True)
     subprocess.run(["git", "push"], cwd=BASE_DIR, check=True)
-    print("Pushed — Render will redeploy with the fresh deals.")
+    print("Pushed.")
+
+    # public-URL repos don't auto-deploy on Render — hit the deploy hook
+    hook = os.environ.get("RENDER_DEPLOY_HOOK") or cfg.get("render_deploy_hook")
+    if hook:
+        import requests
+        r = requests.get(hook, timeout=30)
+        print(f"Render deploy triggered ({r.status_code}).")
+    else:
+        print("No render_deploy_hook in config.json — trigger the deploy "
+              "manually in the Render dashboard.")
 
 
 if __name__ == "__main__":
