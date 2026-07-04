@@ -31,6 +31,21 @@ python3 refresh_deals.py --no-push  # dry run, write deals/ only
 
 Once you have PA-API keys (3 qualifying sales), set `PAAPI_ACCESS_KEY`, `PAAPI_SECRET_KEY` and change `DATA_SOURCE` to `auto` in the Render dashboard — the site switches to live official data, no code change needed.
 
+## Daily promotion — share_deals.py
+
+Generates the day's top-deals message (rating-filtered, honest product-page MRPs, affiliate `/go/` links) and distributes it:
+
+```bash
+python3 share_deals.py          # print + copy to clipboard (paste into WhatsApp channel)
+python3 share_deals.py --post   # also auto-post to Telegram + Pinterest
+```
+
+- **WhatsApp**: no official posting API — the message lands in your clipboard, paste it into your channel. (Don't use unofficial WhatsApp automation libraries; they get numbers banned.)
+- **Telegram**: create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`), create a channel, add the bot as admin, then set `telegram_bot_token` and `telegram_channel` (e.g. `"@YourChannel"`) in config.json.
+- **Pinterest**: create an app at [developers.pinterest.com](https://developers.pinterest.com), generate a token with `pins:write`, set `pinterest_access_token` and `pinterest_board_id` in config.json. Top 3 deals get pinned with product images.
+
+Daily routine: `python3 refresh_deals.py && python3 share_deals.py --post` → fresh data on the site + posts everywhere.
+
 ## Set your affiliate tag (important!)
 
 Every "Buy on Amazon" button goes through `/go/<asin>`, which 302-redirects to Amazon with your Associates tag attached. Put your tag in [config.json](config.json):

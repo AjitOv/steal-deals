@@ -6,5 +6,10 @@
   "data_source": "auto",
   "paapi_access_key": "",
   "paapi_secret_key": "",
-  "paapi_pages": 2
+  "paapi_pages": 2,
+  "render_deploy_hook": "",
+  "telegram_bot_token": "",
+  "telegram_channel": "",
+  "pinterest_access_token": "",
+  "pinterest_board_id": ""
 }
