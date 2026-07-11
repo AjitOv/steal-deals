@@ -34,7 +34,19 @@ from share_deals import pick_deals  # same quality filter as the daily message
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 REELS_DIR = os.path.join(BASE_DIR, "reels")
 MUSIC = os.path.join(BASE_DIR, "assets", "music.mp3")
+MUSIC_DIR = os.path.join(BASE_DIR, "assets", "music")
 SITE = "https://steal-deals.onrender.com"
+
+
+def pick_music(theme):
+    """assets/music.mp3 wins; else rotate assets/music/*.mp3 by day+theme."""
+    if os.path.exists(MUSIC):
+        return MUSIC
+    tracks = sorted(glob.glob(os.path.join(MUSIC_DIR, "*.mp3")))
+    if not tracks:
+        return None
+    idx = (date.today().toordinal() + sorted(THEMES).index(theme)) % len(tracks)
+    return tracks[idx]
 
 W, H, FPS = 1080, 1920, 30
 INTRO_S, DEAL_S, OUTRO_S = 2.2, 3.0, 2.5
@@ -203,8 +215,10 @@ def main():
             f.writelines(f"file '{c}'\n" for c in clips)
         cmd = ["ffmpeg", "-y", "-loglevel", "error",
                "-f", "concat", "-safe", "0", "-i", concat_list]
-        if os.path.exists(MUSIC):
-            cmd += ["-stream_loop", "-1", "-i", MUSIC, "-shortest",
+        music = pick_music(args.theme)
+        if music:
+            print(f"[music] {os.path.basename(music)}")
+            cmd += ["-stream_loop", "-1", "-i", music, "-shortest",
                     "-c:a", "aac", "-b:a", "128k"]
         cmd += ["-c:v", "copy", "-movflags", "+faststart", out_mp4]
         subprocess.run(cmd, check=True)
@@ -216,6 +230,9 @@ def main():
               f"   {SITE}/go/{d['asin']}?src=yt"
               for i, d in enumerate(deals, 1)]
     lines += ["", f"All deals: {SITE}",
+              "📲 Telegram: https://t.me/lootbazaardealsa",
+              "💬 WhatsApp: https://whatsapp.com/channel/0029VaI5CV93AzNUiZ5Tt226",
+              "",
               "As an Amazon Associate I earn from qualifying purchases. #ad #affiliate",
               "#amazondeals #dealsindia #loot #amazonfinds #steals"]
     with open(caption, "w") as f:
