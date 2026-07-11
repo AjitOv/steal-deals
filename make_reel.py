@@ -19,6 +19,7 @@ import glob
 import html
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -38,6 +39,23 @@ SITE = "https://steal-deals.onrender.com"
 W, H, FPS = 1080, 1920, 30
 INTRO_S, DEAL_S, OUTRO_S = 2.2, 3.0, 2.5
 
+GADGET_KWS = {"Electronics", "Headphones", "Smart Watches", "Mobiles", "Laptops"}
+THEMES = {
+    # theme: (deal filter, intro heading, caption lead)
+    "top": (lambda d: True,
+            "TOP {n} AMAZON<br>STEALS TODAY",
+            "🔥 Top {n} Amazon steals today"),
+    "budget": (lambda d: d["price"] <= 300,
+               "{n} THINGS UNDER<br>₹300 ON AMAZON",
+               "🤑 {n} things under ₹300 on Amazon"),
+    "gadgets": (lambda d: d.get("keyword") in GADGET_KWS,
+                "{n} GADGET STEALS<br>ON AMAZON",
+                "⚡ {n} gadget steals on Amazon"),
+    "homefashion": (lambda d: d.get("keyword") not in GADGET_KWS,
+                    "{n} HOME &amp; FASHION<br>STEALS TODAY",
+                    "🏠 {n} home & fashion steals today"),
+}
+
 PAGE = """<!doctype html><html><head><meta charset="utf-8"><style>
   * {{ margin:0; box-sizing:border-box; font-family:-apple-system,'Segoe UI',sans-serif; }}
   body {{ width:{w}px; height:{h}px; overflow:hidden; color:#fff;
@@ -54,7 +72,7 @@ INTRO_CSS = """
   .sub { font-size:52px; color:#9ad5ca; }"""
 INTRO_BODY = """
   <div class="fire">🔥</div>
-  <h1>TOP {n} AMAZON<br>STEALS TODAY</h1>
+  <h1>{heading}</h1>
   <div class="pct">up to {maxpct}% OFF</div>
   <p class="sub">all ★4.0+ rated · honest prices</p>"""
 
@@ -105,14 +123,15 @@ def shoot(chrome, html_text, out_png, tmp):
 
 def clip(png, seconds, out_mp4):
     frames = int(seconds * FPS)
-    # upscale before zoompan to avoid subpixel jitter
+    # single-frame input: zoompan holds it for d output frames — feeding it
+    # a looped stream multiplies the duration (d frames PER input frame)
     vf = (f"scale={W*2}:{H*2},"
           f"zoompan=z='min(zoom+0.0009,1.10)':d={frames}"
           f":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={W}x{H}:fps={FPS}")
     subprocess.run(
-        ["ffmpeg", "-y", "-loglevel", "error", "-loop", "1",
-         "-framerate", str(FPS), "-t", str(seconds), "-i", png,
-         "-vf", vf, "-c:v", "libx264", "-preset", "fast",
+        ["ffmpeg", "-y", "-loglevel", "error", "-i", png,
+         "-vf", vf, "-frames:v", str(frames),
+         "-c:v", "libx264", "-preset", "fast",
          "-pix_fmt", "yuv420p", out_mp4],
         check=True)
 
@@ -120,6 +139,7 @@ def clip(png, seconds, out_mp4):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.strip().splitlines()[0])
     ap.add_argument("--deals", type=int, default=5)
+    ap.add_argument("--theme", choices=sorted(THEMES), default="top")
     args = ap.parse_args()
 
     chrome = scraper.find_chrome()
@@ -128,26 +148,31 @@ def main():
     if not shutil.which("ffmpeg"):
         sys.exit("ffmpeg not found — brew install ffmpeg")
 
-    deals = pick_deals(args.deals)
+    theme_filter, heading_tpl, lead_tpl = THEMES[args.theme]
+    deals = [d for d in pick_deals(40) if theme_filter(d)][:args.deals]
     if not deals:
-        sys.exit("No deals pass the quality filter — refresh first.")
+        sys.exit(f"No deals pass the '{args.theme}' filter — refresh first.")
 
     os.makedirs(REELS_DIR, exist_ok=True)
     stamp = date.today().isoformat()
-    out_mp4 = os.path.join(REELS_DIR, f"reel_{stamp}.mp4")
+    out_mp4 = os.path.join(REELS_DIR, f"reel_{stamp}_{args.theme}.mp4")
 
     with tempfile.TemporaryDirectory() as tmp:
         slides = []
 
         s = os.path.join(tmp, "00_intro.png")
         shoot(chrome, PAGE.format(w=W, h=H, css=INTRO_CSS, body=INTRO_BODY.format(
-            n=len(deals), maxpct=max(d["discount"] for d in deals))), s, tmp)
+            heading=heading_tpl.format(n=len(deals)),
+            maxpct=max(d["discount"] for d in deals))), s, tmp)
         slides.append((s, INTRO_S))
 
         for i, d in enumerate(deals, 1):
             img_path = os.path.join(tmp, f"prod{i}.jpg")
+            # search thumbnails are ~200px; the size token in the URL is
+            # swappable, so ask the CDN for an 800px render instead
+            img_url = re.sub(r"\._[^./]+_\.", "._SL800_.", d.get("image", ""))
             try:
-                r = requests.get(d["image"], timeout=20)
+                r = requests.get(img_url, timeout=20)
                 r.raise_for_status()
                 with open(img_path, "wb") as f:
                     f.write(r.content)
@@ -181,11 +206,11 @@ def main():
         if os.path.exists(MUSIC):
             cmd += ["-stream_loop", "-1", "-i", MUSIC, "-shortest",
                     "-c:a", "aac", "-b:a", "128k"]
-        cmd += ["-c:v", "copy", out_mp4]
+        cmd += ["-c:v", "copy", "-movflags", "+faststart", out_mp4]
         subprocess.run(cmd, check=True)
 
-    caption = os.path.join(REELS_DIR, f"caption_{stamp}.txt")
-    lines = [f"🔥 Top {len(deals)} Amazon steals today — up to "
+    caption = os.path.join(REELS_DIR, f"caption_{stamp}_{args.theme}.txt")
+    lines = [f"{lead_tpl.format(n=len(deals))} — up to "
              f"{max(d['discount'] for d in deals)}% OFF! #shorts", ""]
     lines += [f"{i}. {d['title'][:60]} — ₹{d['price']:,.0f} ({d['discount']}% off)\n"
               f"   {SITE}/go/{d['asin']}?src=yt"

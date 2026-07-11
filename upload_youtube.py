@@ -71,8 +71,8 @@ def main():
         return  # auth-only run
 
     stamp = date.today().isoformat()
-    video = args.video or os.path.join(REELS_DIR, f"reel_{stamp}.mp4")
-    caption = args.caption or os.path.join(REELS_DIR, f"caption_{stamp}.txt")
+    video = args.video or os.path.join(REELS_DIR, f"reel_{stamp}_top.mp4")
+    caption = args.caption or os.path.join(REELS_DIR, f"caption_{stamp}_top.txt")
     if not os.path.exists(video):
         sys.exit(f"No reel found at {video} — run make_reel.py first.")
 
