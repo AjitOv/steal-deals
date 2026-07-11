@@ -111,17 +111,27 @@ def extract_deals(page_html, marketplace, keyword):
         discount = round((1 - price / mrp) * 100)
 
         img_el = card.select_one("img.s-image")
-        rating_el = card.select_one("i.a-icon-star-small span, i.a-icon-star span")
+        # star icon variants: -small/-mini seen across layouts; aria-label as fallback
+        rating_el = card.select_one(
+            "i.a-icon-star-small span.a-icon-alt, i.a-icon-star span.a-icon-alt, "
+            "i.a-icon-star-mini span.a-icon-alt")
+        rating_text = rating_el.get_text(strip=True) if rating_el else None
+        if not rating_text:
+            aria_el = card.select_one('[aria-label*="out of 5 stars"]')
+            rating_text = aria_el.get("aria-label") if aria_el else None
         rating = None
-        if rating_el:
-            m = re.match(r"([\d.]+)", rating_el.get_text(strip=True))
+        if rating_text:
+            m = re.match(r"([\d.]+)", rating_text)
             rating = float(m.group(1)) if m else None
 
-        reviews_el = card.select_one("span.a-size-base.s-underline-text")
+        # count lives in aria-label ("2,300 ratings"); visible text is abbreviated ("(2.3K)")
         reviews = None
-        if reviews_el:
-            m = PRICE_RE.search(reviews_el.get_text(strip=True))
-            reviews = int(m.group(0).replace(",", "")) if m else None
+        for el in card.select("a[aria-label], span.a-size-base.s-underline-text"):
+            source = el.get("aria-label") or el.get_text(strip=True)
+            m = re.fullmatch(r"([\d,]+)\s*ratings?", source.strip())
+            if m:
+                reviews = int(m.group(1).replace(",", ""))
+                break
 
         deals.append({
             "asin": asin,
