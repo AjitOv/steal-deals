@@ -11,6 +11,11 @@ LOG="logs/daily_$(date +%Y-%m-%d).log"
 {
   echo "=== steal-deals daily run: $(date) ==="
   python3 refresh_deals.py && python3 share_deals.py --post
+
+  # reel + YouTube Short (skips gracefully until yt_token.json exists)
+  if python3 make_reel.py; then
+    python3 upload_youtube.py || echo "[youtube] upload skipped/failed — see above"
+  fi
   echo "=== finished: $(date) (exit $?) ==="
 } >> "$LOG" 2>&1
 

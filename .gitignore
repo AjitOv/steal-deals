@@ -1,5 +1,8 @@
 __pycache__/
 cache/
 config.json
-steal_deals.html
 logs/
+reels/
+steal_deals.html
+yt_client_secret.json
+yt_token.json
