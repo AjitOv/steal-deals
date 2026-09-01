@@ -95,6 +95,23 @@ def main():
                 print(f"[product] {asin}: failed, card data will be used")
             polite_sleep()
 
+    # Flipkart (scraped — their affiliate feed API is dead; links carry ?affid=)
+    fk_affid = cfg.get("flipkart_affiliate_id")
+    if fk_affid and not args.keywords:
+        import flipkart
+        fk_keywords = cfg.get("flipkart_keywords",
+                              ["Smart Watches", "Headphones", "Shoes",
+                               "Home & Kitchen", "Toys"])
+        for kw in fk_keywords:
+            print(f"[flipkart] {kw} …", flush=True)
+            fk = flipkart.search_deals(kw, fk_affid, min_discount=50, chrome=chrome)
+            if fk:
+                write_json(cache_path("fksearch", kw), fk)
+                print(f"[flipkart] {kw}: {len(fk)} deals")
+            else:
+                print(f"[flipkart] {kw}: no results")
+            polite_sleep()
+
     write_json(os.path.join(DEALS_DIR, "index.json"), {
         "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "keywords": ok,

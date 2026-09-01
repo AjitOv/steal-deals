@@ -102,9 +102,40 @@ def line(d):
             f"   {SITE}/go/{d['asin']}")
 
 
-def build_message(deals):
+def pick_flipkart(top_n=3):
+    """Top Flipkart deals from the scraped fksearch_*.json caches."""
+    seen, deals = set(), []
+    for path in glob.glob(os.path.join(DEALS_DIR, "fksearch_*.json")):
+        for d in _load_json(path) or []:
+            if d["asin"] not in seen and 50 <= d["discount"] <= 90:
+                seen.add(d["asin"])
+                deals.append(d)
+    deals.sort(key=lambda d: d["discount"], reverse=True)
+    out, per_kw = [], {}
+    for d in deals:  # variety: max 1 per source keyword
+        kw = d.get("keyword", "")
+        if per_kw.get(kw, 0) < 1:
+            per_kw[kw] = 1
+            out.append(d)
+        if len(out) == top_n:
+            break
+    return out
+
+
+def fk_line(d):
+    title = d["title"][:55].rstrip() + ("…" if len(d["title"]) > 55 else "")
+    return (f"🔷 {title}\n"
+            f"   {rup(d['price'])} (was {rup(d['mrp'])}, -{d['discount']}%)\n"
+            f"   {d['url']}")
+
+
+def build_message(deals, fk_deals=None):
     body = "\n\n".join(line(d) for d in deals)
-    return (f"🔥 Today's Amazon steals — hand-picked, honest discounts:\n\n{body}"
+    fk_body = ""
+    if fk_deals:
+        fk_body = ("\n\n— FLIPKART STEALS —\n\n"
+                   + "\n\n".join(fk_line(d) for d in fk_deals))
+    return (f"🔥 Today's steals — hand-picked, honest discounts:\n\n{body}{fk_body}"
             f"\n\nAll deals: {SITE}\n(affiliate links — costs you nothing extra)")
 
 
@@ -163,7 +194,7 @@ def main():
     deals = pick_deals(args.top)
     if not deals:
         sys.exit("No deals found — run refresh_deals.py first.")
-    msg = build_message(deals)
+    msg = build_message(deals, pick_flipkart())
 
     print(msg)
     print("\n" + "=" * 60)
