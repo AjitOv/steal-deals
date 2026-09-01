@@ -80,6 +80,14 @@ def main():
 
     yt = get_service(interactive=args.auth)
     if args.auth and not args.video:
+        issued = os.path.join(BASE_DIR, "yt_token.json.issued")
+        if os.path.exists(issued):
+            import time
+            age = (time.time() - int(open(issued).read().strip())) / 86400
+            print(f"Token is valid (issued {age:.1f} days ago; "
+                  f"testing-mode tokens expire at 7 days).")
+        else:
+            print("Token is valid.")
         return  # auth-only run
 
     stamp = date.today().isoformat()
