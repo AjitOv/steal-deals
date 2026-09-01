@@ -31,6 +31,15 @@ TODAY=$(date +%Y-%m-%d)
     echo "[refresh] already ran today — skipping scrape"
   fi
 
+  # warn a day BEFORE the testing-mode token's 7-day expiry (marker written by --auth)
+  if [ -f yt_token.json.issued ]; then
+    AGE_DAYS=$(( ($(date +%s) - $(cat yt_token.json.issued)) / 86400 ))
+    if [ "$AGE_DAYS" -ge 6 ]; then
+      echo "[youtube] token is ${AGE_DAYS} days old — expires at 7. Re-auth needed."
+      osascript -e 'display notification "YouTube token expires tomorrow — run: python3 upload_youtube.py --auth" with title "Loot Bazaar daily run" sound name "Basso"' 2>/dev/null
+    fi
+  fi
+
   # themed reel + YouTube Short (skips gracefully until yt_token.json exists)
   if $PYTHON make_reel.py --theme "$THEME"; then
     if ! $PYTHON upload_youtube.py \

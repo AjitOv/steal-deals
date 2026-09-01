@@ -62,6 +62,10 @@ def get_service(interactive):
         creds = flow.run_local_server(port=0)
         with open(TOKEN, "w") as f:
             f.write(creds.to_json())
+        # testing-mode refresh tokens die 7 days after ISSUE (refreshing does
+        # not extend); daily_run.sh warns when this marker turns 6 days old
+        with open(TOKEN + ".issued", "w") as f:
+            f.write(str(int(__import__("time").time())))
         print("Authorized — token saved. Daily uploads will work unattended now.")
     return build("youtube", "v3", credentials=creds)
 
