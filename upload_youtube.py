@@ -24,7 +24,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 REELS_DIR = os.path.join(BASE_DIR, "reels")
 CLIENT_SECRET = os.path.join(BASE_DIR, "yt_client_secret.json")
 TOKEN = os.path.join(BASE_DIR, "yt_token.json")
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
+          "https://www.googleapis.com/auth/youtube.force-ssl"]
 
 
 def get_service(interactive):
@@ -40,6 +41,8 @@ def get_service(interactive):
     creds = None
     if os.path.exists(TOKEN):
         creds = Credentials.from_authorized_user_file(TOKEN, SCOPES)
+        if interactive and not set(SCOPES).issubset(set(creds.scopes or [])):
+            creds = None  # scope list grew — force a fresh consent
     if creds and creds.expired and creds.refresh_token:
         try:
             creds.refresh(Request())
@@ -122,7 +125,29 @@ def main():
         status, response = request.next_chunk()
         if status:
             print(f"upload {int(status.progress() * 100)}%")
-    print(f"Published: https://youtube.com/shorts/{response['id']}")
+    video_id = response["id"]
+    print(f"Published: https://youtube.com/shorts/{video_id}")
+
+    # Shorts viewers rarely open descriptions — drop the links in a comment
+    # too (pin it from the app for best reach). Needs youtube.force-ssl scope;
+    # tokens issued before that scope was added just skip this gracefully.
+    comment = "\n".join(
+        [l for l in desc.splitlines() if "http" in l or l.strip().startswith(tuple("123456789"))][:8]
+    )
+    if comment:
+        try:
+            yt.commentThreads().insert(
+                part="snippet",
+                body={"snippet": {
+                    "videoId": video_id,
+                    "topLevelComment": {"snippet": {"textOriginal":
+                        "🛒 Grab the deals here 👇\n\n" + comment}},
+                }},
+            ).execute()
+            print("Comment with deal links posted — pin it from the YouTube app.")
+        except Exception as e:
+            print(f"[comment] skipped ({str(e)[:120]}) — re-auth to grant the "
+                  "comment permission: python3 upload_youtube.py --auth")
 
 
 if __name__ == "__main__":

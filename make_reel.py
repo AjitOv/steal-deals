@@ -118,7 +118,7 @@ OUTRO_CSS = """
 OUTRO_BODY = """
   <div class="bell">🔔</div>
   <h1>FOLLOW FOR<br>DAILY STEALS</h1>
-  <div class="link">link in bio → steal-deals</div>
+  <div class="link">🛒 links in description &amp; comments 👇</div>
   <p class="sub">new deals every morning</p>"""
 
 
