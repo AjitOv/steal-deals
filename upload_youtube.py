@@ -41,9 +41,17 @@ def get_service(interactive):
     if os.path.exists(TOKEN):
         creds = Credentials.from_authorized_user_file(TOKEN, SCOPES)
     if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        with open(TOKEN, "w") as f:
-            f.write(creds.to_json())
+        try:
+            creds.refresh(Request())
+            with open(TOKEN, "w") as f:
+                f.write(creds.to_json())
+        except Exception as e:
+            # testing-mode refresh tokens die after 7 days -> invalid_grant
+            creds = None
+            if not interactive:
+                sys.exit(f"TOKEN EXPIRED ({e}) — run `python3 upload_youtube.py "
+                         "--auth` to re-authorize (and publish the Google app "
+                         "to production to stop weekly expiry).")
     if not creds or not creds.valid:
         if not interactive:
             sys.exit("Not authorized yet — run `python3 upload_youtube.py --auth` "
