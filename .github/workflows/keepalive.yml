@@ -1,0 +1,19 @@
+name: Keep Render awake
+
+# Backstop for the app's own self-ping: wakes the service if it ever does
+# spin down (e.g. right after a restart, or if the self-ping thread dies).
+# GitHub cron can lag several minutes under load, which is fine for a backstop.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping site
+        run: |
+          curl -sS -o /dev/null -w "HTTP %{http_code} in %{time_total}s\n" \
+            --max-time 90 --retry 2 --retry-delay 10 \
+            https://steal-deals.onrender.com/api/config

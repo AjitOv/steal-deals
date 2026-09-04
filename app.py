@@ -119,6 +119,30 @@ def source_product(marketplace, asin):
 
 app = Flask(__name__, static_folder="static")
 
+
+# ---- keep-alive: stop Render's free tier from idling the service ----
+# Render kills free web services after ~15 min without traffic, so the next
+# visitor eats a ~60s cold boot. While we're running, ping our own public URL
+# (Render sets RENDER_EXTERNAL_URL automatically) every 10 minutes.
+# Disable with KEEP_ALIVE=0. A GitHub Actions cron does the same from outside
+# as a backstop (.github/workflows/keepalive.yml).
+def _keep_alive_loop(url, interval_sec=600):
+    import requests as _requests
+    while True:
+        time.sleep(interval_sec)
+        try:
+            _requests.get(url + "/api/config", timeout=30)
+        except Exception as e:
+            print(f"[keep-alive] ping failed: {e}")
+
+
+_KEEP_ALIVE_URL = os.environ.get("RENDER_EXTERNAL_URL", "").rstrip("/")
+KEEP_ALIVE_ON = bool(_KEEP_ALIVE_URL) and os.environ.get("KEEP_ALIVE") != "0"
+if KEEP_ALIVE_ON:
+    threading.Thread(target=_keep_alive_loop, args=(_KEEP_ALIVE_URL,),
+                     daemon=True, name="keep-alive").start()
+    print(f"[keep-alive] pinging {_KEEP_ALIVE_URL} every 10 min")
+
 # At most 2 Chrome renders at once; scrapes of the same key share one flight.
 _scrape_sem = threading.Semaphore(2)
 _inflight = {}
@@ -188,6 +212,7 @@ def api_config():
         "affiliate_tag_set": CONFIG["affiliate_tag"] != DEFAULT_CONFIG["affiliate_tag"],
         "source": "cache" if cache_mode() else
                   ("paapi" if paapi_enabled() else "scrape"),
+        "keep_alive": KEEP_ALIVE_ON,
     }
     if cache_mode():
         idx = deals_index()
